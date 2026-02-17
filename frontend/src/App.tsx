@@ -107,6 +107,7 @@ function App() {
   const [snapshots, setSnapshots] = useState<Record<number, Snapshot>>({})
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [form, setForm] = useState<FormState>(defaultForm)
+  const [resetPassword, setResetPassword] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -255,6 +256,28 @@ function App() {
       await loadSnapshots()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to collect snapshot.')
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function resetCredentials(instanceId: number) {
+    setError(null)
+    setBusyAction('reset')
+    try {
+      const res = await fetch(`${API_BASE}/instances/${instanceId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: resetPassword }),
+      })
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null)
+        throw new Error(detail?.detail ?? 'Unable to reset credentials.')
+      }
+      setResetPassword('')
+      await checkSetup(instanceId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to reset credentials.')
     } finally {
       setBusyAction(null)
     }
@@ -464,6 +487,30 @@ function App() {
                     >
                       {busyAction === 'collect' ? 'Collecting...' : 'Collect snapshot'}
                     </button>
+                  </div>
+
+                  <div className="rounded-lg border border-midnight/10 bg-white px-3 py-2 text-xs text-midnight/70">
+                    <p className="font-semibold text-midnight">Reset stored credentials</p>
+                    <p className="mt-1">
+                      Use this if the encryption key changed or the password was rotated.
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <input
+                        className="min-w-[180px] flex-1 rounded-md border border-midnight/20 px-3 py-2 text-xs"
+                        type="password"
+                        value={resetPassword}
+                        onChange={(event) => setResetPassword(event.target.value)}
+                        placeholder="New password"
+                      />
+                      <button
+                        className="rounded-md bg-mint px-3 py-2 text-xs font-semibold text-midnight transition hover:bg-mint/90"
+                        type="button"
+                        onClick={() => resetCredentials(selectedInstance.id)}
+                        disabled={busyAction === 'reset' || resetPassword.length === 0}
+                      >
+                        {busyAction === 'reset' ? 'Resetting...' : 'Reset password'}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="rounded-lg bg-white px-3 py-2 text-xs text-midnight/70">

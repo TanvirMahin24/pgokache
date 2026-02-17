@@ -26,6 +26,12 @@ class InstanceSerializer(serializers.ModelSerializer):
         validated_data['password_enc'] = encrypt_password(password)
         return super().create(validated_data)
 
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        if password:
+            validated_data['password_enc'] = encrypt_password(password)
+        return super().update(instance, validated_data)
+
 
 class SetupStateSerializer(serializers.ModelSerializer):
     class Meta:

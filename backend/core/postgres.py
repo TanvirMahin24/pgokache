@@ -77,16 +77,41 @@ def check_setup(conn):
     }
 
 
+def _resolve_stat_columns(conn):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'pg_stat_statements'
+            """
+        )
+        cols = {row[0] for row in cur.fetchall()}
+    if 'total_exec_time' in cols:
+        return {
+            'total_time': 'total_exec_time',
+            'mean_time': 'mean_exec_time',
+        }
+    return {
+        'total_time': 'total_time',
+        'mean_time': 'mean_time',
+    }
+
+
 def collect_top_queries(conn, limit=200, min_calls=5, min_total_time_ms=50):
-    sql = """
-    SELECT queryid::text AS queryid, query, calls, total_time, mean_time, rows,
+    time_cols = _resolve_stat_columns(conn)
+    sql = f"""
+    SELECT queryid::text AS queryid, query, calls,
+           {time_cols['total_time']} AS total_time,
+           {time_cols['mean_time']} AS mean_time,
+           rows,
            COALESCE(shared_blks_read,0) AS shared_blks_read,
            COALESCE(shared_blks_hit,0) AS shared_blks_hit,
            COALESCE(temp_blks_written,0) AS temp_blks_written,
            COALESCE(wal_bytes,0) AS wal_bytes
     FROM pg_stat_statements
     WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
-    ORDER BY total_time DESC
+    ORDER BY {time_cols['total_time']} DESC
     LIMIT %s;
     """
     cleaned = []

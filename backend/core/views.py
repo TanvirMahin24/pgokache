@@ -2,6 +2,7 @@ from django.db import transaction
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from cryptography.fernet import InvalidToken
 from .models import Instance, SetupState, Snapshot, QueryStat, Recommendation
 from .serializers import (
     InstanceSerializer,
@@ -20,7 +21,13 @@ class InstanceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def check_setup(self, request, pk=None):
         instance = self.get_object()
-        password = decrypt_password(bytes(instance.password_enc))
+        try:
+            password = decrypt_password(bytes(instance.password_enc))
+        except InvalidToken:
+            return Response(
+                {'detail': 'Stored credentials are invalid. Please reset the password.'},
+                status=status.HTTP_409_CONFLICT,
+            )
         conn = get_connection(instance, password)
         info = check_setup(conn)
 
@@ -43,7 +50,13 @@ class InstanceViewSet(viewsets.ModelViewSet):
         if not state:
             return Response({'detail': 'setup not ready'}, status=status.HTTP_409_CONFLICT)
 
-        password = decrypt_password(bytes(instance.password_enc))
+        try:
+            password = decrypt_password(bytes(instance.password_enc))
+        except InvalidToken:
+            return Response(
+                {'detail': 'Stored credentials are invalid. Please reset the password.'},
+                status=status.HTTP_409_CONFLICT,
+            )
         conn = get_connection(instance, password)
         rows = collect_top_queries(conn)
         conn.close()

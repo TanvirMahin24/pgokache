@@ -3,6 +3,7 @@ import time
 import logging
 from django.conf import settings
 from django.utils import timezone
+from cryptography.fernet import InvalidToken
 from .models import Instance, SetupState, Snapshot, QueryStat
 from .crypto import decrypt_password
 from .postgres import get_connection, collect_top_queries
@@ -25,7 +26,11 @@ def _tick():
 
 
 def _collect_instance(instance: Instance):
-    password = decrypt_password(bytes(instance.password_enc))
+    try:
+        password = decrypt_password(bytes(instance.password_enc))
+    except InvalidToken:
+        logger.warning('collection skipped for instance %s: invalid credentials', instance.id)
+        return
     conn = get_connection(instance, password)
     rows = collect_top_queries(conn)
     conn.close()
