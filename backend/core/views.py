@@ -12,6 +12,7 @@ from .serializers import (
 )
 from .crypto import decrypt_password
 from .postgres import get_connection, check_setup, collect_top_queries
+from .recommendations import generate_recommendations
 
 
 class InstanceViewSet(viewsets.ModelViewSet):
@@ -66,6 +67,7 @@ class InstanceViewSet(viewsets.ModelViewSet):
             QueryStat.objects.bulk_create(
                 [QueryStat(snapshot=snapshot, **row) for row in rows]
             )
+        generate_recommendations(snapshot)
         return Response({'snapshot_id': snapshot.id, 'rows': len(rows)})
 
 

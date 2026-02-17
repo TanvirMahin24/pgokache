@@ -52,6 +52,19 @@ type Snapshot = {
   query_stats: QueryStat[]
 }
 
+type Recommendation = {
+  id: number
+  instance: number
+  type: string
+  title: string
+  details: string
+  sql: string
+  confidence: string
+  score: number
+  status: string
+  created_at: string
+}
+
 type FormState = {
   name: string
   host: string
@@ -105,6 +118,7 @@ function App() {
   const [setupStates, setSetupStates] = useState<Record<number, SetupState>>({})
   const [setupInfo, setSetupInfo] = useState<Record<number, SetupInfo>>({})
   const [snapshots, setSnapshots] = useState<Record<number, Snapshot>>({})
+  const [recommendations, setRecommendations] = useState<Record<number, Recommendation[]>>({})
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [form, setForm] = useState<FormState>(defaultForm)
   const [resetPassword, setResetPassword] = useState('')
@@ -119,6 +133,7 @@ function App() {
   const selectedSetup = selectedId ? setupInfo[selectedId] ?? null : null
   const selectedSetupState = selectedId ? setupStates[selectedId] ?? null : null
   const selectedSnapshot = selectedId ? snapshots[selectedId] ?? null : null
+  const selectedRecommendations = selectedId ? recommendations[selectedId] ?? [] : []
   const selectedPgMajor = pgMajorVersion(selectedSetup?.pg_version_num ?? selectedSetupState?.pg_version_num)
   const configName = pgConfigName(selectedPgMajor)
   const serviceName = pgServiceName(selectedPgMajor)
@@ -128,7 +143,7 @@ function App() {
   }, [])
 
   async function initialize() {
-    await Promise.all([loadInstances(), loadSetupStates(), loadSnapshots()])
+    await Promise.all([loadInstances(), loadSetupStates(), loadSnapshots(), loadRecommendations()])
   }
 
   async function loadInstances() {
@@ -176,6 +191,27 @@ function App() {
       setSnapshots(next)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load snapshots.')
+    }
+  }
+
+  async function loadRecommendations() {
+    try {
+      const res = await fetch(`${API_BASE}/recommendations/`)
+      if (!res.ok) throw new Error('Failed to load recommendations.')
+      const data = (await res.json()) as Recommendation[]
+      const next: Record<number, Recommendation[]> = {}
+      data.forEach((rec) => {
+        if (!next[rec.instance]) {
+          next[rec.instance] = []
+        }
+        next[rec.instance].push(rec)
+      })
+      Object.values(next).forEach((list) => {
+        list.sort((a, b) => b.score - a.score)
+      })
+      setRecommendations(next)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load recommendations.')
     }
   }
 
@@ -253,7 +289,7 @@ function App() {
         const detail = await res.json().catch(() => null)
         throw new Error(detail?.detail ?? 'Snapshot failed.')
       }
-      await loadSnapshots()
+      await Promise.all([loadSnapshots(), loadRecommendations()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to collect snapshot.')
     } finally {
@@ -617,6 +653,43 @@ function App() {
           ) : (
             <p className="mt-3 text-sm text-midnight/70">
               No snapshots captured yet. Collect a snapshot after pg_stat_statements is ready.
+            </p>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-midnight/10 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-midnight">Recommendations</h3>
+            {selectedRecommendations.length ? (
+              <span className="text-xs text-midnight/60">{selectedRecommendations.length} suggestion(s)</span>
+            ) : null}
+          </div>
+          {selectedRecommendations.length ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {selectedRecommendations.map((rec) => (
+                <div key={rec.id} className="rounded-xl border border-midnight/10 bg-canvas p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-midnight">{rec.title}</p>
+                    <span className="rounded-full bg-mint/20 px-2 py-1 text-[10px] font-semibold text-midnight">
+                      {rec.type.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-midnight/70">{rec.details}</p>
+                  <div className="mt-3 flex items-center gap-2 text-[10px] text-midnight/60">
+                    <span className="rounded-full bg-white px-2 py-1">Confidence: {rec.confidence}</span>
+                    <span className="rounded-full bg-white px-2 py-1">Score: {rec.score}</span>
+                  </div>
+                  {rec.sql ? (
+                    <p className="mt-2 rounded-md bg-white px-2 py-2 text-[11px] font-mono text-midnight">
+                      {rec.sql}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-midnight/70">
+              No recommendations yet. Collect a snapshot to generate index or read replica suggestions.
             </p>
           )}
         </section>

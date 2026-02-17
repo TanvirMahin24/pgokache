@@ -7,6 +7,7 @@ from cryptography.fernet import InvalidToken
 from .models import Instance, SetupState, Snapshot, QueryStat
 from .crypto import decrypt_password
 from .postgres import get_connection, collect_top_queries
+from .recommendations import generate_recommendations
 
 logger = logging.getLogger(__name__)
 _started = False
@@ -37,6 +38,7 @@ def _collect_instance(instance: Instance):
 
     snapshot = Snapshot.objects.create(instance=instance)
     QueryStat.objects.bulk_create([QueryStat(snapshot=snapshot, **row) for row in rows])
+    generate_recommendations(snapshot)
 
 
 def start_scheduler():
