@@ -84,31 +84,44 @@ def _resolve_stat_columns(conn):
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'pg_stat_statements'
+              AND table_schema = 'public'
             """
         )
-        cols = {row[0] for row in cur.fetchall()}
+        rows = cur.fetchall()
+        cols = {row['column_name'] if isinstance(row, dict) else row[0] for row in rows}
     if 'total_exec_time' in cols:
-        return {
+        time_cols = {
             'total_time': 'total_exec_time',
             'mean_time': 'mean_exec_time',
         }
+    else:
+        time_cols = {
+            'total_time': 'total_time',
+            'mean_time': 'mean_time',
+        }
     return {
-        'total_time': 'total_time',
-        'mean_time': 'mean_time',
+        'available': cols,
+        'time': time_cols,
     }
 
 
 def collect_top_queries(conn, limit=200, min_calls=5, min_total_time_ms=50):
-    time_cols = _resolve_stat_columns(conn)
+    stat_cols = _resolve_stat_columns(conn)
+    time_cols = stat_cols['time']
+    available = stat_cols['available']
+
+    def stat_or_zero(column: str) -> str:
+        return column if column in available else f'0 AS {column}'
+
     sql = f"""
     SELECT queryid::text AS queryid, query, calls,
            {time_cols['total_time']} AS total_time,
            {time_cols['mean_time']} AS mean_time,
            rows,
-           COALESCE(shared_blks_read,0) AS shared_blks_read,
-           COALESCE(shared_blks_hit,0) AS shared_blks_hit,
-           COALESCE(temp_blks_written,0) AS temp_blks_written,
-           COALESCE(wal_bytes,0) AS wal_bytes
+           COALESCE({stat_or_zero('shared_blks_read')},0) AS shared_blks_read,
+           COALESCE({stat_or_zero('shared_blks_hit')},0) AS shared_blks_hit,
+           COALESCE({stat_or_zero('temp_blks_written')},0) AS temp_blks_written,
+           COALESCE({stat_or_zero('wal_bytes')},0) AS wal_bytes
     FROM pg_stat_statements
     WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
     ORDER BY {time_cols['total_time']} DESC
