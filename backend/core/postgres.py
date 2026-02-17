@@ -105,7 +105,7 @@ def _resolve_stat_columns(conn):
     }
 
 
-def collect_top_queries(conn, limit=200, min_calls=5, min_total_time_ms=50):
+def collect_top_queries(conn, limit=200, min_calls=0, min_total_time_ms=0):
     stat_cols = _resolve_stat_columns(conn)
     time_cols = stat_cols['time']
     available = stat_cols['available']
@@ -131,7 +131,9 @@ def collect_top_queries(conn, limit=200, min_calls=5, min_total_time_ms=50):
     with conn.cursor() as cur:
         cur.execute(sql, (limit,))
         for row in cur.fetchall():
-            if row['calls'] < min_calls or row['total_time'] < min_total_time_ms:
+            if min_calls and row['calls'] < min_calls:
+                continue
+            if min_total_time_ms and row['total_time'] < min_total_time_ms:
                 continue
             query_text = normalize_query(row['query'])
             cleaned.append(
