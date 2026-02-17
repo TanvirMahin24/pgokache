@@ -1,0 +1,16 @@
+:root {
+  --accent: #fe7743;
+  --canvas: #efeeea;
+  --midnight: #273f4f;
+  --ink: #000000;
+  --mint: #1dcd9f;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Apple Color Emoji",
+    "Segoe UI Emoji";
+}
+
+html,
+body {
+  background: var(--canvas);
+  color: var(--ink);
+}
