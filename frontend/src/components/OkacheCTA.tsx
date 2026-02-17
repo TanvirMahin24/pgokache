@@ -11,9 +11,9 @@ const copy = {
 export function OkacheCTA({ variant }: Props) {
   const className =
     variant === 'nav'
-      ? 'rounded-md bg-accent px-3 py-2 text-canvas'
+      ? 'rounded-md bg-mint px-3 py-2 text-midnight'
       : variant === 'card'
-        ? 'rounded-md bg-midnight px-4 py-2 text-canvas'
+        ? 'rounded-md bg-mint px-4 py-2 text-midnight'
         : 'text-sm text-midnight underline'
 
   return (
