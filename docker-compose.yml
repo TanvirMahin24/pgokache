@@ -1,0 +1,14 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "0"
+      DJANGO_SECRET_KEY: "change-me"
+      COLLECTOR_INTERVAL_SECONDS: "60"
+      DJANGO_RUN_SCHEDULER: "1"
+    volumes:
+      - ./backend/data:/app/data

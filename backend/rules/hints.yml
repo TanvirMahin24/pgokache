@@ -1,0 +1,13 @@
+rules:
+  - id: seq_scan_filter
+    match: seq_scan_with_filter
+    hint: "Possible missing index on filter columns"
+    confidence: medium
+  - id: high_sort
+    match: sort_high_rows
+    hint: "Consider index to support ORDER BY"
+    confidence: medium
+  - id: function_filter
+    match: function_on_column
+    hint: "Consider functional index or avoid function in predicate"
+    confidence: low

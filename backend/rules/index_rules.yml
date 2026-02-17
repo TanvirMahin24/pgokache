@@ -1,0 +1,10 @@
+rules:
+  - id: filter_columns
+    when: seq_scan_with_filter
+    strategy: [single, composite]
+  - id: join_columns
+    when: join_without_index
+    strategy: [single]
+  - id: sort_columns
+    when: high_cost_sort
+    strategy: [single, filter_plus_sort]
