@@ -75,6 +75,20 @@ const defaultForm: FormState = {
 }
 
 const sslModes = ['prefer', 'require', 'disable', 'verify-ca', 'verify-full']
+const pgMajorVersion = (versionNum?: number | null) => {
+  if (!versionNum) return null
+  return Math.floor(versionNum / 10000)
+}
+
+const pgConfigName = (major?: number | null) => {
+  if (!major) return 'postgresql.conf'
+  return major >= 12 ? 'postgresql.conf' : 'postgresql.conf'
+}
+
+const pgServiceName = (major?: number | null) => {
+  if (!major) return 'postgresql'
+  return major >= 10 ? `postgresql@${major}` : 'postgresql'
+}
 
 function formatNumber(value: number | null | undefined) {
   if (value === null || value === undefined) return '—'
@@ -104,6 +118,9 @@ function App() {
   const selectedSetup = selectedId ? setupInfo[selectedId] ?? null : null
   const selectedSetupState = selectedId ? setupStates[selectedId] ?? null : null
   const selectedSnapshot = selectedId ? snapshots[selectedId] ?? null : null
+  const selectedPgMajor = pgMajorVersion(selectedSetup?.pg_version_num ?? selectedSetupState?.pg_version_num)
+  const configName = pgConfigName(selectedPgMajor)
+  const serviceName = pgServiceName(selectedPgMajor)
 
   useEffect(() => {
     void initialize()
@@ -464,6 +481,50 @@ function App() {
                       <p className="mt-2">Run the checks to see pg_stat_statements parameters.</p>
                     )}
                   </div>
+
+                  {selectedSetup && !selectedSetup.ready ? (
+                    <div className="rounded-lg border border-mint/30 bg-white p-4 text-xs text-midnight/70">
+                      <p className="text-sm font-semibold text-midnight">
+                        Setup guide for Postgres {selectedPgMajor ?? 'your version'}
+                      </p>
+                      <p className="mt-1">
+                        Use these steps to enable pg_stat_statements, then click “Run checks” again.
+                      </p>
+                      <div className="mt-3 rounded-md bg-canvas px-3 py-2 text-[11px] text-midnight/80">
+                        <p className="font-semibold text-midnight">1. Enable the extension</p>
+                        <p className="mt-1">
+                          Run once per database:
+                          <span className="ml-2 font-mono text-midnight">CREATE EXTENSION IF NOT EXISTS pg_stat_statements;</span>
+                        </p>
+                      </div>
+                      <div className="mt-2 rounded-md bg-canvas px-3 py-2 text-[11px] text-midnight/80">
+                        <p className="font-semibold text-midnight">2. Add to shared_preload_libraries</p>
+                        <p className="mt-1">
+                          Update <span className="font-mono text-midnight">{configName}</span> and add:
+                        </p>
+                        <p className="mt-1 font-mono text-midnight">shared_preload_libraries = 'pg_stat_statements'</p>
+                      </div>
+                      <div className="mt-2 rounded-md bg-canvas px-3 py-2 text-[11px] text-midnight/80">
+                        <p className="font-semibold text-midnight">3. Restart Postgres</p>
+                        <p className="mt-1">
+                          Restart your service (example):{' '}
+                          <span className="font-mono text-midnight">systemctl restart {serviceName}</span>
+                        </p>
+                      </div>
+                      <div className="mt-2 rounded-md bg-canvas px-3 py-2 text-[11px] text-midnight/80">
+                        <p className="font-semibold text-midnight">4. Optional tuning</p>
+                        <p className="mt-1">
+                          Set these in <span className="font-mono text-midnight">{configName}</span> if needed:
+                        </p>
+                        <p className="mt-1 font-mono text-midnight">
+                          pg_stat_statements.track = all
+                        </p>
+                        <p className="mt-1 font-mono text-midnight">
+                          pg_stat_statements.max = 10000
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-midnight/70">Select a connection to view readiness.</p>
